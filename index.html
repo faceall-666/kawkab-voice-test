@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex">
+<title>اختبار الإملاء الصوتي</title>
+<style>
+  :root {
+    --bg: #0f0c24; --card: #1c1838; --card2: #26214a; --line: #3a3466; --text: #f2efff; --muted: #a9a3cc;
+    --accent: #d9774f; --ok: #3ccf91; --warn: #f2b84b; --bad: #ff6b6b; --bar: #b9a6ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.7 -apple-system, "SF Arabic", "Segoe UI", Tahoma, sans-serif; }
+  body { padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); max-width: 680px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; gap: 12px; }
+  h1 { font-size: 20px; margin: 0; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .log { flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 8px 0; }
+  .bubble { align-self: flex-start; background: #6c4fd6; color: #fff; padding: 10px 14px; border-radius: 18px; max-width: 85%; white-space: pre-wrap; }
+  .bubble small { display: block; opacity: .8; font-size: 12px; }
+  .composer { background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  textarea { width: 100%; min-height: 96px; max-height: 40dvh; resize: none; background: transparent; border: 0; color: var(--text); font: inherit; outline: none; }
+  textarea.live { color: var(--text); }
+  .row { direction: ltr; display: flex; align-items: center; gap: 10px; }
+  .btn { width: 46px; height: 46px; border-radius: 50%; border: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--card2); color: var(--text); flex: none; }
+  .btn:disabled { opacity: .4; }
+  .btn.send { background: var(--accent); color: #fff; }
+  .btn svg { width: 22px; height: 22px; }
+  .wave { flex: 1; height: 46px; display: flex; align-items: center; justify-content: center; gap: 3px; overflow: hidden; }
+  .wave i { width: 4px; border-radius: 2px; background: var(--bar); height: 4px; opacity: .55; transition: height 80ms linear; }
+  .opts { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 14px; }
+  .opts label { display: inline-flex; gap: 6px; align-items: center; min-height: 44px; }
+  select { background: var(--card2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 8px; font: inherit; }
+  .status { font-size: 14px; min-height: 22px; }
+  .status.ok { color: var(--ok); } .status.warn { color: var(--warn); } .status.bad { color: var(--bad); }
+  details { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 8px 12px; font-size: 13px; }
+  details pre { white-space: pre-wrap; direction: ltr; text-align: left; margin: 6px 0; font-size: 12px; color: var(--muted); }
+  .hint { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; font-size: 14px; }
+</style>
+</head>
+<body>
+  <h1>اختبار الإملاء الصوتي — مشرف نجم</h1>
+  <p class="muted">صفحة اختبار مستقلة: تحول كلامك إلى نص مكتوب وأنت تتكلم. لا تحفظ الصفحة شيئا ولا ترسله لأي مكان؛ «إرسال» هنا يضع النص في المحادثة التجريبية أعلى الصفحة فقط. التعرف على الكلام تقوم به خدمة الإملاء في جهازك (Apple أو Google).</p>
+  <div class="hint">جرّب مرتين: مرة من Safari، ومرة بعد «إضافة إلى الشاشة الرئيسية» إذا كنت تستخدم لوحة الإدارة من أيقونة على الشاشة.</div>
+
+  <div class="log" id="log" aria-live="polite"></div>
+
+  <div class="composer">
+    <textarea id="text" placeholder="اضغط المايك وتكلم، أو اكتب هنا…" aria-label="نص الرسالة"></textarea>
+    <div class="status" id="status" role="status"></div>
+    <div class="row">
+      <button class="btn" id="cancel" type="button" aria-label="إلغاء التسجيل" title="إلغاء" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="wave" id="wave" aria-hidden="true"></div>
+      <button class="btn" id="mic" type="button" aria-label="ابدأ التسجيل" title="ابدأ التسجيل">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      </button>
+      <button class="btn" id="stop" type="button" aria-label="إيقاف التسجيل" title="إيقاف" hidden>
+        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>
+      </button>
+      <button class="btn send" id="send" type="button" aria-label="إرسال" title="إرسال">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+      </button>
+    </div>
+    <div class="opts">
+      <label><input type="checkbox" id="autosend"> أرسل تلقائيًا عند إيقاف التسجيل</label>
+      <label><input type="checkbox" id="meter" checked> مؤشر الصوت</label>
+      <label>اللغة
+        <select id="lang">
+          <option value="ar-SA">العربية (السعودية)</option>
+          <option value="ar-KW">العربية (الكويت)</option>
+          <option value="ar-AE">العربية (الإمارات)</option>
+          <option value="ar-EG">العربية (مصر)</option>
+          <option value="en-US">English (US)</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <details id="diag">
+    <summary>معلومات الفحص (أرسل لقطة منها إذا لم يعمل شيء)</summary>
+    <pre id="diagText"></pre>
+  </details>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const text = $("text"), statusEl = $("status"), log = $("log"), wave = $("wave");
+  const micBtn = $("mic"), stopBtn = $("stop"), cancelBtn = $("cancel"), sendBtn = $("send");
+  const autoSend = $("autosend"), meterBox = $("meter"), langSel = $("lang");
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const standalone = window.navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+  const events = [];
+  const BARS = 28;
+  for (let i = 0; i < BARS; i++) wave.appendChild(document.createElement("i"));
+  const bars = [...wave.children];
+
+  function note(kind, message) { statusEl.className = "status " + (kind || ""); statusEl.textContent = message; }
+  function trace(line) { events.push(new Date().toISOString().slice(11, 19) + " " + line); if (events.length > 60) events.shift(); renderDiag(); }
+  function renderDiag() {
+    $("diagText").textContent = [
+      "speechRecognition: " + (Recognition ? "available (" + (window.SpeechRecognition ? "standard" : "webkit") + ")" : "NOT available"),
+      "getUserMedia: " + (!!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)),
+      "secureContext: " + window.isSecureContext,
+      "homeScreenApp: " + standalone,
+      "language: " + langSel.value,
+      "userAgent: " + navigator.userAgent,
+      "", ...events,
+    ].join("\n");
+  }
+
+  const ERRORS = {
+    "not-allowed": "لم يُسمح باستخدام المايك. اسمح للمتصفح بالمايك من الإعدادات ثم أعد المحاولة.",
+    "service-not-allowed": "خدمة الإملاء غير متاحة هنا. تأكد من تشغيل «الإملاء» في إعدادات لوحة المفاتيح (و Siri إن لزم)، أو جرب من Safari بدل أيقونة الشاشة الرئيسية.",
+    "no-speech": "لم يُسمع كلام. تكلم بصوت أوضح أو قرب الهاتف.",
+    "audio-capture": "لم يُعثر على مايك يعمل.",
+    "network": "تعذر الاتصال بخدمة التعرف على الكلام. تحقق من الإنترنت.",
+    "language-not-supported": "هذه اللغة غير مدعومة في الإملاء على هذا الجهاز. جرب لغة عربية أخرى من القائمة.",
+    "aborted": "توقف التسجيل.",
+  };
+
+  // Level meter: Web Audio on the same microphone. It can be switched off to test recognition on its own.
+  let audioCtx = null, stream = null, analyser = null, raf = 0, level = [];
+  async function startMeter() {
+    if (!meterBox.checked || !navigator.mediaDevices) return;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser(); analyser.fftSize = 512;
+      audioCtx.createMediaStreamSource(stream).connect(analyser);
+      const data = new Uint8Array(analyser.fftSize);
+      level = new Array(BARS).fill(0);
+      const tick = () => {
+        analyser.getByteTimeDomainData(data);
+        let sum = 0; for (const v of data) { const x = (v - 128) / 128; sum += x * x; }
+        const rms = Math.min(1, Math.sqrt(sum / data.length) * 4);
+        level.push(rms); level.shift();
+        bars.forEach((bar, i) => { const h = 4 + level[i] * 40; bar.style.height = h + "px"; bar.style.opacity = level[i] > 0.04 ? 1 : .55; });
+        raf = requestAnimationFrame(tick);
+      };
+      tick();
+      trace("meter: started");
+    } catch (e) { trace("meter: " + (e && e.name)); }
+  }
+  function stopMeter() {
+    cancelAnimationFrame(raf); raf = 0;
+    if (stream) stream.getTracks().forEach(t => t.stop()); stream = null;
+    if (audioCtx) audioCtx.close().catch(() => {}); audioCtx = null;
+    bars.forEach(bar => { bar.style.height = "4px"; bar.style.opacity = .55; });
+  }
+
+  // Recognition. iOS ends a session after a pause, so it restarts until the user stops; earlier sessions are kept.
+  let rec = null, listening = false, before = "", committed = "", interim = "", restarts = 0, lastStart = 0, stopping = null;
+  const join = (...parts) => parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  const render = () => { text.value = join(before, committed, interim); text.scrollTop = text.scrollHeight; };
+
+  function newSession() {
+    rec = new Recognition();
+    rec.lang = langSel.value; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
+    let sessionFinal = "";
+    rec.onstart = () => { lastStart = Date.now(); trace("recognition: start"); note("ok", "يستمع… تكلم الآن."); };
+    rec.onresult = event => {
+      let finalText = "", live = "";
+      for (let i = 0; i < event.results.length; i++) {
+        const r = event.results[i];
+        if (r.isFinal) finalText += r[0].transcript + " "; else live += r[0].transcript + " ";
+      }
+      sessionFinal = finalText.trim(); interim = join(sessionFinal, live.trim());
+      render();
+    };
+    rec.onerror = event => {
+      trace("recognition error: " + event.error);
+      if (event.error === "no-speech" || event.error === "aborted") return;
+      listening = false;
+      note("bad", (ERRORS[event.error] || ("خطأ: " + event.error)) + (meterBox.checked ? " إذا تكرر، أوقف «مؤشر الصوت» وجرب مرة أخرى." : ""));
+    };
+    rec.onend = () => {
+      trace("recognition: end");
+      committed = join(committed, interim || sessionFinal); interim = ""; render();
+      if (listening && restarts < 40 && Date.now() - lastStart > 400) { restarts++; try { newSession(); rec.start(); return; } catch (e) { trace("restart failed: " + e.name); } }
+      finish();
+    };
+  }
+
+  function start() {
+    if (!Recognition) { note("bad", "هذا المتصفح لا يدعم تحويل الكلام إلى نص. جرّب Safari على iPhone أو Chrome."); return; }
+    before = text.value.trim(); committed = ""; interim = ""; restarts = 0; listening = true; stopping = null;
+    micBtn.hidden = true; stopBtn.hidden = false; cancelBtn.disabled = false; text.readOnly = true;
+    try { newSession(); rec.start(); } catch (e) { trace("start failed: " + e.name); listening = false; finish(); note("bad", "تعذر بدء التسجيل."); return; }
+    startMeter();
+  }
+  function stop(mode) { stopping = mode; listening = false; if (rec) { try { mode === "cancel" ? rec.abort() : rec.stop(); } catch { finish(); } } else finish(); }
+  function finish() {
+    stopMeter();
+    micBtn.hidden = false; stopBtn.hidden = true; cancelBtn.disabled = true; text.readOnly = false;
+    if (stopping === "cancel") { text.value = before; note("", "أُلغي التسجيل، ورجع النص كما كان."); }
+    else if ((stopping === "send" || stopping === "stop" && autoSend.checked) && text.value.trim()) { send(); note("ok", stopping === "send" ? "أُرسلت الرسالة." : "أُرسلت الرسالة تلقائيًا بعد الإيقاف."); }
+    else if (statusEl.className.indexOf("bad") === -1) note("", text.value.trim() ? "راجع النص وعدّله إن أردت، ثم اضغط إرسال." : "");
+    stopping = null; rec = null;
+  }
+  function send() {
+    const value = text.value.trim(); if (!value) return;
+    const bubble = document.createElement("div"); bubble.className = "bubble";
+    bubble.textContent = value;
+    const meta = document.createElement("small"); meta.textContent = "رسالة تجريبية — لم تُرسل لأي مكان"; bubble.appendChild(meta);
+    log.appendChild(bubble); text.value = ""; trace("sent " + value.length + " chars");
+  }
+
+  micBtn.onclick = start;
+  stopBtn.onclick = () => stop("stop");
+  cancelBtn.onclick = () => stop("cancel");
+  sendBtn.onclick = () => { if (listening) stop("send"); else send(); };
+  langSel.onchange = renderDiag;
+  renderDiag();
+  if (!Recognition) note("warn", "هذا المتصفح لا يدعم تحويل الكلام إلى نص هنا. على iPhone استخدم Safari.");
+})();
+</script>
+</body>
+</html>
