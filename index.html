@@ -154,7 +154,10 @@
   // Recognition. iOS ends a session after a pause, so it restarts until the user stops; earlier sessions are kept.
   let rec = null, listening = false, before = "", committed = "", interim = "", restarts = 0, lastStart = 0, stopping = null;
   const join = (...parts) => parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-  const render = () => { text.value = join(before, committed, interim); text.scrollTop = text.scrollHeight; };
+  const DRAFT = "kawkab-voice-draft";
+  const saveDraft = () => { try { localStorage.setItem(DRAFT, text.value); } catch {} };
+  const micLabel = () => { const label = text.value.trim() ? "أكمل التسجيل" : "ابدأ التسجيل"; micBtn.setAttribute("aria-label", label); micBtn.title = label; };
+  const render = () => { text.value = join(before, committed, interim); text.scrollTop = text.scrollHeight; saveDraft(); };
 
   function newSession() {
     rec = new Recognition();
@@ -195,17 +198,18 @@
   function finish() {
     stopMeter();
     micBtn.hidden = false; stopBtn.hidden = true; cancelBtn.disabled = true; text.readOnly = false;
-    if (stopping === "cancel") { text.value = before; note("", "أُلغي التسجيل، ورجع النص كما كان."); }
+    if (stopping === "cancel") { text.value = before; saveDraft(); note("", "أُلغي آخر تسجيل، وبقي النص الذي قبله."); }
+    else if (stopping === "pause") note("warn", "توقف التسجيل بسبب مقاطعة (مكالمة أو خروج من الصفحة). نصك محفوظ؛ اضغط المايك لتكمل.");
     else if ((stopping === "send" || stopping === "stop" && autoSend.checked) && text.value.trim()) { send(); note("ok", stopping === "send" ? "أُرسلت الرسالة." : "أُرسلت الرسالة تلقائيًا بعد الإيقاف."); }
-    else if (statusEl.className.indexOf("bad") === -1) note("", text.value.trim() ? "راجع النص وعدّله إن أردت، ثم اضغط إرسال." : "");
-    stopping = null; rec = null;
+    else if (statusEl.className.indexOf("bad") === -1) note("", text.value.trim() ? "راجع النص وعدّله إن أردت، ثم اضغط إرسال، أو اضغط المايك لتكمل التسجيل." : "");
+    stopping = null; rec = null; micLabel();
   }
   function send() {
     const value = text.value.trim(); if (!value) return;
     const bubble = document.createElement("div"); bubble.className = "bubble";
     bubble.textContent = value;
     const meta = document.createElement("small"); meta.textContent = "رسالة تجريبية — لم تُرسل لأي مكان"; bubble.appendChild(meta);
-    log.appendChild(bubble); text.value = ""; trace("sent " + value.length + " chars");
+    log.appendChild(bubble); text.value = ""; saveDraft(); micLabel(); trace("sent " + value.length + " chars");
   }
 
   micBtn.onclick = start;
@@ -213,6 +217,11 @@
   cancelBtn.onclick = () => stop("cancel");
   sendBtn.onclick = () => { if (listening) stop("send"); else send(); };
   langSel.onchange = renderDiag;
+  text.addEventListener("input", () => { saveDraft(); micLabel(); });
+  // A call or leaving the page pauses recording; nothing is sent automatically and the text stays.
+  document.addEventListener("visibilitychange", () => { if (document.hidden && listening) stop("pause"); });
+  try { const draft = localStorage.getItem(DRAFT); if (draft) { text.value = draft; note("", "استرجعنا نصك المحفوظ؛ أكمل التسجيل أو أرسله."); } } catch {}
+  micLabel();
   renderDiag();
   if (!Recognition) note("warn", "هذا المتصفح لا يدعم تحويل الكلام إلى نص هنا. على iPhone استخدم Safari.");
 })();
